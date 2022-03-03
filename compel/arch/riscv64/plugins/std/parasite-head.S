@@ -2,6 +2,6 @@
 
 	.section .head.text, "ax"
 ENTRY(__export_parasite_head_start)
-	bl	parasite_service
-	brk	#0					// the instruction BRK #0 generates the signal SIGTRAP in Linux
+	call	parasite_service
+	ebreak
 END(__export_parasite_head_start)

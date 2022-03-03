@@ -18,8 +18,8 @@ unsigned __page_shift = 0;
  * Injected syscall instruction
  */
 const char code_syscall[] = {
-	0x01, 0x00, 0x00, 0xd4, /* SVC #0 */
-	0x00, 0x00, 0x20, 0xd4	/* BRK #0 */
+	0x00, 0x00, 0x00, 0x73, /* ecall */
+	0x00, 0x10, 0x00, 0x73	/* ebreak */
 };
 
 static const int code_syscall_aligned = round_up(sizeof(code_syscall), sizeof(long));
@@ -32,21 +32,12 @@ static inline void __always_unused __check_code_syscall(void)
 
 int sigreturn_prep_regs_plain(struct rt_sigframe *sigframe, user_regs_struct_t *regs, user_fpregs_struct_t *fpregs)
 {
-	struct fpsimd_context *fpsimd = RT_SIGFRAME_FPU(sigframe);
+	user_regs_struct_t *sigframe_regs = RT_SIGFRAME_CPU(sigframe);
+	user_fpregs_struct_t *sigframe_fpregs = RT_SIGFRAME_FPU(sigframe);
 
-	memcpy(sigframe->uc.uc_mcontext.regs, regs->regs, sizeof(regs->regs));
+	memcpy(sigframe_regs, regs, sizeof(*regs));
 
-	sigframe->uc.uc_mcontext.sp = regs->sp;
-	sigframe->uc.uc_mcontext.pc = regs->pc;
-	sigframe->uc.uc_mcontext.pstate = regs->pstate;
-
-	memcpy(fpsimd->vregs, fpregs->vregs, 32 * sizeof(__uint128_t));
-
-	fpsimd->fpsr = fpregs->fpsr;
-	fpsimd->fpcr = fpregs->fpcr;
-
-	fpsimd->head.magic = FPSIMD_MAGIC;
-	fpsimd->head.size = sizeof(*fpsimd);
+	memcpy(sigframe_fpregs, fpregs, sizeof(*fpregs));
 
 	return 0;
 }
@@ -105,19 +96,17 @@ int compel_syscall(struct parasite_ctl *ctl, int nr, long *ret, unsigned long ar
 	user_regs_struct_t regs = ctl->orig.regs;
 	int err;
 
-	regs.regs[8] = (unsigned long)nr;
-	regs.regs[0] = arg1;
-	regs.regs[1] = arg2;
-	regs.regs[2] = arg3;
-	regs.regs[3] = arg4;
-	regs.regs[4] = arg5;
-	regs.regs[5] = arg6;
-	regs.regs[6] = 0;
-	regs.regs[7] = 0;
+	regs.a7 = (unsigned long)nr;
+	regs.a0 = arg1;
+	regs.a1 = arg2;
+	regs.a2 = arg3;
+	regs.a3 = arg4;
+	regs.a4 = arg5;
+	regs.a5 = arg6;
 
 	err = compel_execute_syscall(ctl, &regs, code_syscall);
 
-	*ret = regs.regs[0];
+	*ret = regs.a0;
 	return err;
 }
 
@@ -159,8 +148,7 @@ int arch_fetch_sas(struct parasite_ctl *ctl, struct rt_sigframe *s)
 
 /*
  * Range for task size calculated from the following Linux kernel files:
- *   arch/arm64/include/asm/memory.h
- *   arch/arm64/Kconfig
+ *   arch/riscv/include/asm/pgtable.h
  *
  * TODO: handle 32 bit tasks
  */
