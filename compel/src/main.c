@@ -58,6 +58,7 @@ static const flags_t flags = {
 	.arch = "mips",
 #elif defined CONFIG_RISCV64
 	.arch = "riscv64",
+	.cflags = COMPEL_CFLAGS_PIE,
 #else
 #error "CONFIG_<ARCH> not defined, or unsupported ARCH"
 #endif
@@ -298,7 +299,7 @@ static char *gen_prefix(const char *path)
 
 int main(int argc, char *argv[])
 {
-	int log_level = COMPEL_DEFAULT_LOGLEVEL;
+	int log_level = COMPEL_LOG_DEBUG;
 	bool compat = false;
 	bool is_static = false;
 	int opt, idx;

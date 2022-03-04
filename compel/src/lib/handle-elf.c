@@ -333,6 +333,15 @@ int __handle_elf(void *mem, size_t size)
 					pr_err("Unexpected undefined symbol:%s\n", name);
 					goto err;
 				}
+#elif defined(ELF_RISCV64)
+				/*
+				 * RISC-V relaxations are paired with a call,
+				 * so there's no associated symbol.
+				 */
+				if (ELF_R_TYPE(r->rel.r_info) != R_RISCV_RELAX) {
+					pr_err("Unexpected undefined symbol:%s\n", name);
+					goto err;
+				}
 #else
 				pr_err("Unexpected undefined symbol: `%s'. External symbol in PIE?\n", name);
 				goto err;
@@ -634,6 +643,39 @@ int __handle_elf(void *mem, size_t size)
 			case R_390_PC64: /* 64 bit relative address */
 				*((int64_t *)where) = value64 + addend64 - place;
 				pr_debug("\t\t\t\tR_390_PC64       at 0x%-4lx val 0x%lx\n", place, (long)value64);
+				break;
+#endif
+
+#ifdef ELF_RISCV64
+			case R_RISCV_CALL: /* Symbol + Addend - Place */
+			case R_RISCV_CALL_PLT:
+				((uint32_t *)where)[0] |= riscv_u_imm(value64 + addend64 - place);
+				((uint32_t *)where)[1] |= riscv_j_imm(value64 + addend64 - place);
+				pr_debug("\t\t\t\tR_RISCV_CALL       at 0x%-4lx val 0x%lx\n", place, (long)value64);
+				break;
+			case R_RISCV_BRANCH:
+				((uint32_t *)where)[0] |= riscv_b_imm(value64 + addend64 - place);
+				pr_debug("\t\t\t\tR_RISCV_BRANCH       at 0x%-4lx val 0x%lx\n", place, (long)value64);
+				break;
+			case R_RISCV_JAL:
+				((uint32_t *)where)[0] |= riscv_j_imm(value64 + addend64 - place);
+				pr_debug("\t\t\t\tR_RISCV_JAL       at 0x%-4lx val 0x%lx\n", place, (long)value64);
+				break;
+			case R_RISCV_RELAX: /* Ignore relaxations */
+				break;
+			case R_RISCV_PCREL_HI20:
+				((uint32_t *)where)[0] |= riscv_u_imm(value64 + addend64 - place);
+				pr_debug("\t\t\t\tR_RISCV_PCREL_HI20  at 0x%-4lx val 0x%lx\n", place, (long)value64);
+			case R_RISCV_PCREL_LO12_I:
+			case R_RISCV_PCREL_LO12_S:
+			case R_RISCV_GOT_HI20:
+				break;
+			case R_RISCV_ADD32:
+			case R_RISCV_SUB32:
+				break;
+			case R_RISCV_RVC_BRANCH:
+				break;
+			case R_RISCV_RVC_JUMP:
 				break;
 #endif
 			default:

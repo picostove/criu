@@ -1,7 +1,10 @@
 #ifndef COMPEL_HANDLE_ELF_H__
 #define COMPEL_HANDLE_ELF_H__
 
+#include <compel/asm/instruction_formats.h>
 #include "elf64-types.h"
+
+#define ELF_RISCV64
 
 #define __handle_elf			     handle_elf_riscv64
 #define arch_is_machine_supported(e_machine) (e_machine == EM_RISCV)
